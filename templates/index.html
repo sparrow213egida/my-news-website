@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Мои новости</title>
+</head>
+<body>
+События на день: <br>
+{% if events["day"] is string %}
+{{events["day"]}}
+{% else %}
+{% for event in events["day"] %}
+Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
+{% endfor %} <br>
+{% endif %}
+
+События на неделю: <br>
+{% if events["week"] is string %}
+{{events["week"]}}
+{% else %}
+{% for event in events["week"] %}
+Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
+{% endfor %} <br>
+{% endif %}
+
+События на месяц: <br>
+{% if events["month"] is string %}
+{{events["month"]}}
+{% else %}
+{% for event in events["month"] %}
+Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
+{% endfor %} <br>
+{% endif %}
+</body>
+</html>
