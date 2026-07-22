@@ -1,6 +1,6 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, flash
 import datetime
-import os.path
+import os
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -8,6 +8,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from calendar import monthrange
+from dotenv import load_dotenv
+from database import init_db, add_comment, get_all_comments
+
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
@@ -31,11 +34,13 @@ def get_calendar_events(duration: str) -> list[dict] | str:
         # Save the credentials for the next run
         with open("token.json", "w") as token:
             token.write(creds.to_json())
+
     try:
         service = build("calendar", "v3", credentials=creds)
 
         # Call the Calendar API
         now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=3)))
+
         if duration == "day":
             start_time = now.replace(hour=0, minute=0, second=0)
             end_time = now.replace(hour=23, minute=59, second=59)
@@ -77,7 +82,18 @@ def get_calendar_events(duration: str) -> list[dict] | str:
     except HttpError as error:
         return f"An error occurred: {error}"
 
+load_dotenv()
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY")
+
+init_db()
+
+
+def shift_time_zone(created_at: str) -> str:
+    created_at_date_time = datetime.datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+    created_at_date_time += datetime.timedelta(hours=3)
+    return datetime.datetime.strftime(created_at_date_time, "%Y-%m-%d %H:%M:%S")
+
 
 @app.route('/')
 def main_page():
@@ -85,19 +101,40 @@ def main_page():
     week_events = get_calendar_events("week")
     month_events = get_calendar_events("month")
     events = {"day": day_events, "week": week_events, "month": month_events}
-    return render_template("index.html", events=events)
+
+    comments = get_all_comments()
+    for comment in comments:
+        comment["created_at"] = shift_time_zone(comment["created_at"])
+    return render_template("index.html", events=events, comments=comments)
+
+
+@app.route('/add_comment', methods=["POST"])
+def write_comment():
+    author_name = request.form["name"]
+    content = request.form["content"]
+    honey = request.form["honey"]
+    if honey:
+        return redirect("/")
+    db_answer = add_comment(author_name, content, None)
+    if db_answer != "":
+        flash(db_answer)
+    return redirect("/")
+
 
 @app.route('/day')
 def day_calendar():
     return get_calendar_events("day")
 
+
 @app.route('/week')
 def week_calendar():
     return get_calendar_events("week")
 
+
 @app.route('/month')
 def month_calendar():
     return get_calendar_events("month")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
