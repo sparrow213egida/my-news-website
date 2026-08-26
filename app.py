@@ -76,8 +76,9 @@ def get_calendar_events(duration: str, offset: int) -> list[dict] | str:
 
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
-            request_ans.append({"start": start, "summary": event["summary"],
-                                "color": event_colors[event.get("colorId", 0)]})
+            end = event["end"].get("dateTime", event["end"].get("date"))
+            request_ans.append({"start": start, "end": end, "summary": event["summary"],
+                                "color": event_colors[int(event.get("colorId", 0))]})
         return request_ans
 
     except HttpError as error:
@@ -100,21 +101,34 @@ def main_page():
     week_events = get_calendar_events("week", cur_offset)
 
     if type(week_events) == str:
-        return render_template("index.html", events=week_events, offset=cur_offset)
+        return render_template("index.html", grid=[], offset=cur_offset)
 
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     events = {weekday : [] for weekday in weekdays}
     for event in week_events:
-        event_day = datetime.datetime.fromisoformat(event["start"])
-        events[weekdays[event_day.weekday()]].append(event)
+        event_start = datetime.datetime.fromisoformat(event["start"])
+        events[weekdays[event_start.weekday()]].append(event)
 
-    return render_template("index.html", events=events, offset=cur_offset)
+    grid = []
+    for weekday in weekdays:
+        day_events = events[weekday]
+        day_column = [{} for _ in range(24 * 12)]
 
+        for event in day_events:
+            event_start = datetime.datetime.fromisoformat(event["start"])
+            start_period_number = event_start.hour * 12 + event_start.minute // 5
 
-@app.route('/week')
-def week_calendar():
-    return get_calendar_events("week", 0)
+            event_end = datetime.datetime.fromisoformat(event["end"])
+            end_period_number = event_end.hour * 12 + event_end.minute // 5
+
+            for period in range(start_period_number, end_period_number):
+                day_column[period] = {"event_info": event,
+                                      "start_period": start_period_number, "end_period": end_period_number}
+
+        grid.append(day_column)
+
+    return render_template("index.html", grid=grid, offset=cur_offset)
 
 
 if __name__ == "__main__":

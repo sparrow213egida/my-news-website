@@ -6,26 +6,45 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Мои новости</title>
+    <style>
+        td {
+            width: 200px;
+            height: 5px;
+        }
+    </style>
 </head>
 <body>
-<button onclick="location.href='?offset={{offset - 1}}'">Предыдущая неделя</button>
-<button onclick="location.href='?offset=0'">Текущая неделя</button>
-<button onclick="location.href='?offset={{offset + 1}}'">Следующая неделя</button>
-<h1> События на неделю: </h1> <br>
-{% if events is string %}
-    {{events}}
-{% else %}
-    {% for day, day_events in events.items() %}
-        <div class="day">
-            <h3> {{day}} </h3> <br>
-            {% for event in day_events %}
-                Начало: {{event["start"][:16].replace("T", " ")}},
-                информация о событиях:
-                <span style="background-color: {{event['color']}}"> {{event["summary"]}} </span> <br>
-            {% endfor %}
-        </div>
-    {% endfor %}
-{% endif %}
+    <button onclick="location.href='?offset={{offset - 1}}'">Предыдущая неделя</button>
+    <button onclick="location.href='?offset=0'">Текущая неделя</button>
+    <button onclick="location.href='?offset={{offset + 1}}'">Следующая неделя</button>
 
+    {% if grid == {} %}
+        При отображении расписания произошла ошибка.
+    {% else %}
+        <table>
+            {% for time_period in range(288) %}
+                <tr>
+                    {% for day in range(7) %}
+                        {% if grid[day][time_period] != {} %}
+                            {% set event = grid[day][time_period] %}
+                            {% if time_period == event["start_period"] %}
+                                <td rowspan="{{event['end_period'] - event['start_period']}}"
+                                    style="text-align: center;
+                                    background-color: {{event['event_info']['color']}};">
+                                        {{event["event_info"]["summary"]}}
+                                </td>
+                            {% endif %}
+
+                        {% else %}
+                            <td rowspan="1" style="background-color: #D3D3D3;"></td>
+                        {% endif %}
+
+                    {% endfor %}
+                </tr>
+
+            {% endfor %}
+        </table>
+
+    {% endif %}
 </body>
 </html>
