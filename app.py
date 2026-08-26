@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash
+from flask import Flask, render_template, request
 import datetime
 import os
 
@@ -9,13 +9,12 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from calendar import monthrange
 from dotenv import load_dotenv
-from database import init_db, add_comment, get_all_comments
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 
-def get_calendar_events(duration: str) -> list[dict] | str:
+def get_calendar_events(duration: str, offset: int) -> list[dict] | str:
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -42,9 +41,10 @@ def get_calendar_events(duration: str) -> list[dict] | str:
             end_time = now.replace(hour=23, minute=59, second=59)
         elif duration == "week":
             days_in_week = 7
-            start_time_day = now - datetime.timedelta(days=now.weekday())
+            start_time_day = now - datetime.timedelta(days=now.weekday()) + datetime.timedelta(weeks=offset)
             start_time = start_time_day.replace(hour=0, minute=0, second=0)
-            end_time_day = now + datetime.timedelta(days=days_in_week - now.isoweekday())
+            end_time_day = (now + datetime.timedelta(days=days_in_week - now.isoweekday())
+                            + datetime.timedelta(weeks=offset))
             end_time = end_time_day.replace(hour=23, minute=59, second=59)
         elif duration == "month":
             start_time = now.replace(day=1, hour=0, minute=0, second=0)
@@ -70,9 +70,14 @@ def get_calendar_events(duration: str) -> list[dict] | str:
             return []
 
         request_ans = []
+
+        event_colors = ["#9E9E9E", "#7986CB", "#33B679", "#8E24AA", "#E67C73", "#F6C026",
+                        "#F5511D", "#039BE5", "#0D904F", "#7B1FA2", "#D23C34", "#616161"]
+
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
-            request_ans.append({"start": start, "summary": event["summary"]})
+            request_ans.append({"start": start, "summary": event["summary"],
+                                "color": event_colors[event.get("colorId", 0)]})
         return request_ans
 
     except HttpError as error:
@@ -82,8 +87,6 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-init_db()
-
 
 def shift_time_zone(created_at: str) -> str:
     created_at_date_time = datetime.datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
@@ -91,45 +94,27 @@ def shift_time_zone(created_at: str) -> str:
     return datetime.datetime.strftime(created_at_date_time, "%Y-%m-%d %H:%M:%S")
 
 
-@app.route('/')
+@app.route('/', methods=["GET"])
 def main_page():
-    day_events = get_calendar_events("day")
-    week_events = get_calendar_events("week")
-    month_events = get_calendar_events("month")
-    events = {"day": day_events, "week": week_events, "month": month_events}
+    cur_offset = request.args.get("offset", default=0, type=int)
+    week_events = get_calendar_events("week", cur_offset)
 
-    comments = get_all_comments()
-    for comment in comments:
-        comment["created_at"] = shift_time_zone(comment["created_at"])
-    return render_template("index.html", events=events, comments=comments)
+    if type(week_events) == str:
+        return render_template("index.html", events=week_events, offset=cur_offset)
 
+    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-@app.route('/add_comment', methods=["POST"])
-def write_comment():
-    author_name = request.form["name"]
-    content = request.form["content"]
-    honey = request.form["honey"]
-    if honey:
-        return redirect("/")
-    db_answer = add_comment(author_name, content, None)
-    if db_answer != "":
-        flash(db_answer)
-    return redirect("/")
+    events = {weekday : [] for weekday in weekdays}
+    for event in week_events:
+        event_day = datetime.datetime.fromisoformat(event["start"])
+        events[weekdays[event_day.weekday()]].append(event)
 
-
-@app.route('/day')
-def day_calendar():
-    return get_calendar_events("day")
+    return render_template("index.html", events=events, offset=cur_offset)
 
 
 @app.route('/week')
 def week_calendar():
-    return get_calendar_events("week")
-
-
-@app.route('/month')
-def month_calendar():
-    return get_calendar_events("month")
+    return get_calendar_events("week", 0)
 
 
 if __name__ == "__main__":

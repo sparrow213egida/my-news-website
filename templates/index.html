@@ -6,64 +6,26 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Мои новости</title>
-    <style>
-        p {
-            display: none;
-        }
-    </style>
 </head>
 <body>
-<h1> События на день: </h1> <br>
-{% if events["day"] is string %}
-    {{events["day"]}}
-{% else %}
-    {% for event in events["day"] %}
-        Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
-    {% endfor %} <br>
-{% endif %}
-
+<button onclick="location.href='?offset={{offset - 1}}'">Предыдущая неделя</button>
+<button onclick="location.href='?offset=0'">Текущая неделя</button>
+<button onclick="location.href='?offset={{offset + 1}}'">Следующая неделя</button>
 <h1> События на неделю: </h1> <br>
-{% if events["week"] is string %}
-    {{events["week"]}}
+{% if events is string %}
+    {{events}}
 {% else %}
-    {% for event in events["week"] %}
-        Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
-    {% endfor %} <br>
-{% endif %}
-
-<h1> События на месяц: </h1> <br>
-{% if events["month"] is string %}
-    {{events["month"]}}
-{% else %}
-    {% for event in events["month"] %}
-        Начало: {{event["start"][:16].replace("T", " ")}}, информация о событиях: {{event["summary"]}} <br>
-    {% endfor %} <br>
-{% endif %}
-
-<h1> Комментарии: </h1> <br>
-{% with messages = get_flashed_messages() %}
-    {% for message in messages %}
-        {{message}}
-    {% endfor %}
-{% endwith %}
-<form method="POST" action="/add_comment">
-    <label for="name">Ваше имя:</label>
-    <input type="text" name="name" id="name" required> <br>
-    <label for="content">Текст комментария:</label>
-    <textarea name="content" id="content" required> </textarea> <br>
-    <label for="honey"></label>
-    <p>
-        <input type="text" name="honey" id="honey">
-    </p>
-    <button type="submit">Отправить</button>
-</form> <br>
-{% if comments == [] %}
-    Пока комментариев нет
-{% else %}
-    {% for comment in comments %}
-        {{comment["author_name"]}}, {{comment["created_at"]}} <br>
-        {{comment["content"]}} <br> <br>
+    {% for day, day_events in events.items() %}
+        <div class="day">
+            <h3> {{day}} </h3> <br>
+            {% for event in day_events %}
+                Начало: {{event["start"][:16].replace("T", " ")}},
+                информация о событиях:
+                <span style="background-color: {{event['color']}}"> {{event["summary"]}} </span> <br>
+            {% endfor %}
+        </div>
     {% endfor %}
 {% endif %}
+
 </body>
 </html>
