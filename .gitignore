@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Google OAuth
+credentials.json
+token.json
+
+# База данных (если появится)
+*.db
+
+# Логи и временные файлы
+*.log
+*.tmp
+.DS_Store
