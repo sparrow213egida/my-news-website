@@ -9,7 +9,7 @@
     <style>
         td {
             width: 200px;
-            height: 5px;
+            height: 3px;
         }
     </style>
 </head>
@@ -17,13 +17,20 @@
     <button onclick="location.href='?offset={{offset - 1}}'">Предыдущая неделя</button>
     <button onclick="location.href='?offset=0'">Текущая неделя</button>
     <button onclick="location.href='?offset={{offset + 1}}'">Следующая неделя</button>
-
+    <br>
     {% if grid == {} %}
         При отображении расписания произошла ошибка.
     {% else %}
+        Расписание на неделю с {{week_start}} по {{week_end}} <br>
         <table>
             {% for time_period in range(288) %}
                 <tr>
+                    <td style="width: 25px">
+                        {% if time_period % 12 == 0 %}
+                            {{time_period // 12}}:00
+                        {% endif %}
+                    </td>
+
                     {% for day in range(7) %}
                         {% if grid[day][time_period] != {} %}
                             {% set event = grid[day][time_period] %}
@@ -31,12 +38,13 @@
                                 <td rowspan="{{event['end_period'] - event['start_period']}}"
                                     style="text-align: center;
                                     background-color: {{event['event_info']['color']}};">
-                                        {{event["event_info"]["summary"]}}
+                                    {{event["event_info"]["summary"]}}, {{event["event_info"]["start"][11:16]}} -
+                                    {{event["event_info"]["end"][11:16]}}
                                 </td>
                             {% endif %}
 
                         {% else %}
-                            <td rowspan="1" style="background-color: #D3D3D3;"></td>
+                            <td style="background-color: #D3D3D3;"></td>
                         {% endif %}
 
                     {% endfor %}

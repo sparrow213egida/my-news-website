@@ -7,14 +7,13 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from calendar import monthrange
 from dotenv import load_dotenv
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 
-def get_calendar_events(duration: str, offset: int) -> list[dict] | str:
+def get_calendar_events(offset: int) -> list[dict] | str:
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -36,23 +35,13 @@ def get_calendar_events(duration: str, offset: int) -> list[dict] | str:
 
         now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=3)))
 
-        if duration == "day":
-            start_time = now.replace(hour=0, minute=0, second=0)
-            end_time = now.replace(hour=23, minute=59, second=59)
-        elif duration == "week":
-            days_in_week = 7
-            start_time_day = now - datetime.timedelta(days=now.weekday()) + datetime.timedelta(weeks=offset)
-            start_time = start_time_day.replace(hour=0, minute=0, second=0)
-            end_time_day = (now + datetime.timedelta(days=days_in_week - now.isoweekday())
-                            + datetime.timedelta(weeks=offset))
-            end_time = end_time_day.replace(hour=23, minute=59, second=59)
-        elif duration == "month":
-            start_time = now.replace(day=1, hour=0, minute=0, second=0)
-            days_in_month = monthrange(now.year, now.month)[1]
-            end_time = now.replace(day=days_in_month, hour=23, minute=59, second=59)
-        else:
-            return "An error occurred: wrong duration selected"
-
+        days_in_week = 7
+        start_time_day = now - datetime.timedelta(days=now.weekday()) + datetime.timedelta(weeks=offset)
+        start_time = start_time_day.replace(hour=0, minute=0, second=0)
+        end_time_day = (now + datetime.timedelta(days=days_in_week - now.isoweekday())
+                        + datetime.timedelta(weeks=offset))
+        end_time = end_time_day.replace(hour=23, minute=59, second=59)
+        
         events_result = (
             service.events()
             .list(
@@ -71,14 +60,15 @@ def get_calendar_events(duration: str, offset: int) -> list[dict] | str:
 
         request_ans = []
 
-        event_colors = ["#9E9E9E", "#7986CB", "#33B679", "#8E24AA", "#E67C73", "#F6C026",
-                        "#F5511D", "#039BE5", "#0D904F", "#7B1FA2", "#D23C34", "#616161"]
+        colors = service.colors().get().execute()
+        event_colors = {i: colors["event"][i]["background"] for i in colors["event"].keys()}
+        event_colors["0"] = "#9E9E9E"
 
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
             end = event["end"].get("dateTime", event["end"].get("date"))
             request_ans.append({"start": start, "end": end, "summary": event["summary"],
-                                "color": event_colors[int(event.get("colorId", 0))]})
+                                "color": event_colors[event.get("colorId", "0")]})
         return request_ans
 
     except HttpError as error:
@@ -95,13 +85,28 @@ def shift_time_zone(created_at: str) -> str:
     return datetime.datetime.strftime(created_at_date_time, "%Y-%m-%d %H:%M:%S")
 
 
+def get_week_info(offset: int) -> tuple[str, str]:
+    now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=3)))
+
+    offset_date = now + datetime.timedelta(weeks=offset)
+
+    week_start = offset_date - datetime.timedelta(days=now.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+
+    return (datetime.datetime.strftime(week_start, "%d.%m.%Y"),
+            datetime.datetime.strftime(week_end, "%d.%m.%Y"))
+
+
 @app.route('/', methods=["GET"])
 def main_page():
     cur_offset = request.args.get("offset", default=0, type=int)
-    week_events = get_calendar_events("week", cur_offset)
+    week_events = get_calendar_events(cur_offset)
+
+    week_start, week_end = get_week_info(cur_offset)
 
     if type(week_events) == str:
-        return render_template("index.html", grid=[], offset=cur_offset)
+        return render_template("index.html", grid=[], offset=cur_offset,
+                               week_start = week_start, week_end = week_end)
 
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -128,7 +133,8 @@ def main_page():
 
         grid.append(day_column)
 
-    return render_template("index.html", grid=grid, offset=cur_offset)
+    return render_template("index.html", grid=grid, offset=cur_offset,
+                           week_start=week_start, week_end = week_end)
 
 
 if __name__ == "__main__":
