@@ -84,6 +84,16 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 app.calendar_list = os.getenv("CALENDAR_ID_LIST", "primary")
+app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS")
+app.token_contents = os.getenv("TOKEN_CONTENTS")
+
+if app.credentials_contents != '':
+    with open("credentials.json", "w") as credentials_file:
+        credentials_file.write(app.credentials_contents)
+
+if app.token_contents != '':
+    with open("token.json", "w") as token_file:
+        token_file.write(app.token_contents)
 
 
 def shift_time_zone(created_at: str) -> str:
