@@ -7,6 +7,27 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Мои новости</title>
     <style>
+        button {
+            height: 40px;
+            width: 200px;
+            text-align: center;
+            background: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-family: "Verdana";
+            font-size: 15px;
+            margin: 0px 30px;
+        }
+        button:hover {
+            transition: 0.2s;
+            cursor: pointer;
+            background: #357ABD;
+        }
+        .week_duration {
+            margin: 20px 40px;
+            font-family: "Verdana";
+        }
         td {
             width: 200px;
             height: 3px;
@@ -21,13 +42,15 @@
     {% if grid == {} %}
         При отображении расписания произошла ошибка.
     {% else %}
-        Расписание на неделю с {{week_start}} по {{week_end}} <br>
+        <div class="week_duration">
+            <h4> Расписание на неделю с {{week_start}} по {{week_end}} </h4>
+        </div>
         <table>
-            {% for time_period in range(288) %}
+            {% for time_period in range(192) %}
                 <tr>
                     <td style="width: 25px">
                         {% if time_period % 12 == 0 %}
-                            {{time_period // 12}}:00
+                            {{time_period // 12 + 8}}:00
                         {% endif %}
                     </td>
 
@@ -37,14 +60,19 @@
                             {% if time_period == event["start_period"] %}
                                 <td rowspan="{{event['end_period'] - event['start_period']}}"
                                     style="text-align: center;
-                                    background-color: {{event['event_info']['color']}};">
+                                    background-color: {{event['event_info']['color']}};
+                                    font-family: 'Verdana'; font-size: 13px;">
                                     {{event["event_info"]["summary"]}}, {{event["event_info"]["start"][11:16]}} -
                                     {{event["event_info"]["end"][11:16]}}
                                 </td>
                             {% endif %}
 
                         {% else %}
-                            <td style="background-color: #D3D3D3;"></td>
+                            {% if time_period % 12 == 0 %}
+                                <td style="background-color: #C3C3C3;"></td>
+                            {% else %}
+                                <td style="background-color: #D3D3D3;"></td>
+                            {% endif %}
                         {% endif %}
 
                     {% endfor %}

@@ -41,28 +41,34 @@ def get_calendar_events(offset: int) -> list[dict] | str:
         end_time_day = (now + datetime.timedelta(days=days_in_week - now.isoweekday())
                         + datetime.timedelta(weeks=offset))
         end_time = end_time_day.replace(hour=23, minute=59, second=59)
-        
-        events_result = (
-            service.events()
-            .list(
-                calendarId="primary",
-                timeMin=start_time.isoformat(),
-                timeMax=end_time.isoformat(),
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
-        )
-        events = events_result.get("items", [])
+
+        if app.calendar_list == '':
+            calendars = []
+        else:
+            calendars = app.calendar_list.split(',')
+
+        events = []
+
+        for calendar in calendars:
+            events_result = service.events().list(calendarId=calendar,
+                                                   timeMin=start_time.isoformat(),
+                                                   timeMax=end_time.isoformat(),
+                                                   singleEvents=True,
+                                                   orderBy="startTime").execute()
+            events += events_result.get("items", [])
 
         if not events:
             return []
 
         request_ans = []
 
-        colors = service.colors().get().execute()
-        event_colors = {i: colors["event"][i]["background"] for i in colors["event"].keys()}
-        event_colors["0"] = "#9E9E9E"
+        event_colors = {"0": "#9E9E9E", "1": "#A4BDFC", "2": "#7AE7BF", "3": "#DBADFF", "4": "#FF887C",
+                         "5": "#FBD75B", "6": "#FFB878", "7": "#46D6DB", "8": "#E1E1E1", "9": "#5484ED",
+                         "10": "#51B749", "11": "#DC2127", "12": "#FFADAD", "13": "#FFD6A5", "14": "#FDFFB6",
+                         "15": "#CAFFBF", "16": "#9BF6FF", "17": "#A0C4FF", "18": "#BDB2FF", "19": "#FFC6FF",
+                         "20": "#E74C3C", "21": "#F39C12", "22": "#F1C40F", "23": "#2ECC71", "24": "#1ABC9C",
+                         "25": "#3498DB", "26": "#9B59B6", "27": "#E84393", "28": "#8D6F47", "29": "#95A5A6",
+                         "30": "#4E5D6C", "31": "#865A5A", "32": "#2C3E50"}
 
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
@@ -77,6 +83,7 @@ def get_calendar_events(offset: int) -> list[dict] | str:
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+app.calendar_list = os.getenv("CALENDAR_ID_LIST", "primary")
 
 
 def shift_time_zone(created_at: str) -> str:
@@ -118,17 +125,18 @@ def main_page():
     grid = []
     for weekday in weekdays:
         day_events = events[weekday]
-        day_column = [{} for _ in range(24 * 12)]
+        day_column = [{} for _ in range(16 * 12)]
 
         for event in day_events:
             event_start = datetime.datetime.fromisoformat(event["start"])
-            start_period_number = event_start.hour * 12 + event_start.minute // 5
+            start_period_number = (event_start.hour - 8) * 12 + event_start.minute // 5
 
             event_end = datetime.datetime.fromisoformat(event["end"])
-            end_period_number = event_end.hour * 12 + event_end.minute // 5
+            end_period_number = (event_end.hour - 8) * 12 + event_end.minute // 5
 
-            for period in range(start_period_number, end_period_number):
-                day_column[period] = {"event_info": event,
+            if event_start.hour >= 8:
+                for period in range(start_period_number, end_period_number):
+                    day_column[period] = {"event_info": event,
                                       "start_period": start_period_number, "end_period": end_period_number}
 
         grid.append(day_column)
