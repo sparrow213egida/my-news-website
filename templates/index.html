@@ -46,6 +46,13 @@
             <h4> Расписание на неделю с {{week_start}} по {{week_end}} </h4>
         </div>
         <table>
+            <tr>
+                <td style="width: 25px"></td>
+                {% set weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] %}
+                {% for weekday in weekdays %}
+                    <td style="text-align: center"> {{weekday}} </td>
+                {% endfor %}
+            </tr>
             {% for time_period in range(192) %}
                 <tr>
                     <td style="width: 25px">
