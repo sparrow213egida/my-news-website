@@ -39,7 +39,7 @@
     <button onclick="location.href='?offset=0'">Текущая неделя</button>
     <button onclick="location.href='?offset={{offset + 1}}'">Следующая неделя</button>
     <br>
-    {% if grid == {} %}
+    {% if grid == [] %}
         При отображении расписания произошла ошибка.
     {% else %}
         <div class="week_duration">
@@ -53,6 +53,24 @@
                     <td style="text-align: center"> {{weekday}} </td>
                 {% endfor %}
             </tr>
+            {% for event_row in range(max_task_count) %}
+                <tr>
+                    <td style="width: 25px"></td>
+                    {% for day in range(7) %}
+                        <td style="height: 1px; text-align: center;
+                        background-color: #87CEFA; color: #2F4F4F">
+                            {% if tasks[day] | length > event_row %}
+                                {% if tasks[day][event_row]["status"] == "completed" %}
+                                    <s>{{tasks[day][event_row]["title"]}}</s>
+                                {% else %}
+                                    {{tasks[day][event_row]["title"]}}
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+
             {% for time_period in range(192) %}
                 <tr>
                     <td style="width: 25px">

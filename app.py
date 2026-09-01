@@ -11,7 +11,8 @@ from googleapiclient.errors import HttpError
 from dotenv import load_dotenv
 
 
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/calendar.readonly",
+          "https://www.googleapis.com/auth/tasks.readonly"]
 
 load_dotenv()
 app = Flask(__name__)
@@ -19,6 +20,7 @@ app.secret_key = os.getenv("SECRET_KEY")
 app.calendar_list = os.getenv("CALENDAR_ID_LIST", "primary")
 app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS")
 app.token_contents = os.getenv("TOKEN_CONTENTS")
+app.tasklist = os.getenv("TASKLIST_ID")
 
 if app.credentials_contents:
     with open("credentials.json", "w") as credentials_file:
@@ -29,7 +31,7 @@ if app.token_contents:
         token_file.write(app.token_contents)
 
 
-def get_calendar_events(offset: int) -> list[dict] | str:
+def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -53,7 +55,8 @@ def get_calendar_events(offset: int) -> list[dict] | str:
             token.write(creds.to_json())
 
     try:
-        service = build("calendar", "v3", credentials=creds)
+        service_calendar = build("calendar", "v3", credentials=creds)
+        service_tasks = build("tasks", "v1", credentials=creds)
 
         now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=3)))
 
@@ -73,29 +76,40 @@ def get_calendar_events(offset: int) -> list[dict] | str:
         label_ids = {}
 
         for calendar in calendars:
-            calendar_labels = service.calendars().get(calendarId=calendar).execute()["labelProperties"]["eventLabels"]
+            calendar_labels = (
+                service_calendar.calendars().get(calendarId=calendar).execute())["labelProperties"]["eventLabels"]
 
             for label in calendar_labels:
                 label_ids[label["id"]] = label["backgroundColor"]
 
-            events_result = service.events().list(calendarId=calendar,
+            events_result = service_calendar.events().list(calendarId=calendar,
                                                    timeMin=start_time.isoformat(),
                                                    timeMax=end_time.isoformat(),
                                                    singleEvents=True,
                                                    orderBy="startTime").execute()
             events += events_result.get("items", [])
 
-        if not events:
-            return []
-
-        request_ans = []
+        calendar_request_ans = []
 
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
             end = event["end"].get("dateTime", event["end"].get("date"))
-            request_ans.append({"start": start, "end": end, "summary": event["summary"],
+            calendar_request_ans.append({"start": start, "end": end, "summary": event["summary"],
                                 "color": label_ids[event["eventLabelId"]]})
-        return request_ans
+
+        tasks_list = service_tasks.tasks().list(tasklist=app.tasklist,
+                                                dueMin=start_time.isoformat(),
+                                                dueMax=end_time.isoformat(),
+                                                showCompleted=True,
+                                                showHidden=True).execute()["items"]
+
+        tasks_request_ans = []
+
+        for task in tasks_list:
+            print(task)
+            tasks_request_ans.append({"title": task["title"], "due": task["due"], "status": task["status"]})
+
+        return {"calendar_ans": calendar_request_ans, "task_ans": tasks_request_ans}
 
     except HttpError as error:
         return f"An error occurred: {error}"
@@ -122,7 +136,9 @@ def get_week_info(offset: int) -> tuple[str, str]:
 @app.route('/', methods=["GET"])
 def main_page():
     cur_offset = request.args.get("offset", default=0, type=int)
-    week_events = get_calendar_events(cur_offset)
+    events_and_tasks = get_calendar_events(cur_offset)
+
+    week_events = events_and_tasks["calendar_ans"]
 
     week_start, week_end = get_week_info(cur_offset)
 
@@ -156,8 +172,18 @@ def main_page():
 
         grid.append(day_column)
 
+    week_tasks = events_and_tasks["task_ans"]
+    tasks = [[] for _ in range(7)]
+
+    for task in week_tasks:
+        deadline = datetime.datetime.fromisoformat(task["due"])
+        tasks[deadline.weekday()].append(task)
+
+    max_task_count = max(len(task_list) for task_list in tasks)
+
     return render_template("index.html", grid=grid, offset=cur_offset,
-                           week_start=week_start, week_end = week_end)
+                           week_start=week_start, week_end = week_end, tasks=tasks,
+                           max_task_count=max_task_count)
 
 
 if __name__ == "__main__":
