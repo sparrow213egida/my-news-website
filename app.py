@@ -10,7 +10,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from dotenv import load_dotenv
 
-
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly",
           "https://www.googleapis.com/auth/tasks.readonly"]
 
@@ -82,11 +81,13 @@ def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
             for label in calendar_labels:
                 label_ids[label["id"]] = label["backgroundColor"]
 
+            shifted_start_time = start_time + datetime.timedelta(hours=3)
+            shifted_end_time = end_time + datetime.timedelta(hours=3)
             events_result = service_calendar.events().list(calendarId=calendar,
-                                                   timeMin=start_time.isoformat(),
-                                                   timeMax=end_time.isoformat(),
-                                                   singleEvents=True,
-                                                   orderBy="startTime").execute()
+                                                           timeMin=shifted_start_time.isoformat(),
+                                                           timeMax=shifted_end_time.isoformat(),
+                                                           singleEvents=True,
+                                                           orderBy="startTime").execute()
             events += events_result.get("items", [])
 
         calendar_request_ans = []
@@ -94,8 +95,20 @@ def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
         for event in events:
             start = event["start"].get("dateTime", event["start"].get("date"))
             end = event["end"].get("dateTime", event["end"].get("date"))
+
+            event_color = "#87CEFA"
+
+            if event.get("eventLabelId", 0) != 0:
+                event_color = label_ids[event["eventLabelId"]]
+
             calendar_request_ans.append({"start": start, "end": end, "summary": event["summary"],
-                                "color": label_ids[event["eventLabelId"]]})
+                                         "color": event_color})
+
+        print(start_time.isoformat())
+        print(end_time.isoformat())
+        first_list = service_tasks.tasks().list(tasklist=app.tasklist).execute()["items"]
+        for event in first_list:
+            print(event)
 
         tasks_list = service_tasks.tasks().list(tasklist=app.tasklist,
                                                 dueMin=start_time.isoformat(),
@@ -106,19 +119,12 @@ def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
         tasks_request_ans = []
 
         for task in tasks_list:
-            print(task)
             tasks_request_ans.append({"title": task["title"], "due": task["due"], "status": task["status"]})
 
         return {"calendar_ans": calendar_request_ans, "task_ans": tasks_request_ans}
 
     except HttpError as error:
         return f"An error occurred: {error}"
-
-
-def shift_time_zone(created_at: str) -> str:
-    created_at_date_time = datetime.datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
-    created_at_date_time += datetime.timedelta(hours=3)
-    return datetime.datetime.strftime(created_at_date_time, "%Y-%m-%d %H:%M:%S")
 
 
 def get_week_info(offset: int) -> tuple[str, str]:
@@ -144,11 +150,11 @@ def main_page():
 
     if type(week_events) == str:
         return render_template("index.html", grid=[], offset=cur_offset,
-                               week_start = week_start, week_end = week_end)
+                               week_start=week_start, week_end=week_end)
 
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-    events = {weekday : [] for weekday in weekdays}
+    events = {weekday: [] for weekday in weekdays}
     for event in week_events:
         event_start = datetime.datetime.fromisoformat(event["start"])
         events[weekdays[event_start.weekday()]].append(event)
@@ -168,7 +174,7 @@ def main_page():
             if event_start.hour >= 8:
                 for period in range(start_period_number, end_period_number):
                     day_column[period] = {"event_info": event,
-                                      "start_period": start_period_number, "end_period": end_period_number}
+                                          "start_period": start_period_number, "end_period": end_period_number}
 
         grid.append(day_column)
 
@@ -182,7 +188,7 @@ def main_page():
     max_task_count = max(len(task_list) for task_list in tasks)
 
     return render_template("index.html", grid=grid, offset=cur_offset,
-                           week_start=week_start, week_end = week_end, tasks=tasks,
+                           week_start=week_start, week_end=week_end, tasks=tasks,
                            max_task_count=max_task_count)
 
 
