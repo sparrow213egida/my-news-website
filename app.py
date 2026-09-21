@@ -104,22 +104,17 @@ def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
             calendar_request_ans.append({"start": start, "end": end, "summary": event["summary"],
                                          "color": event_color})
 
-        print(start_time.isoformat())
-        print(end_time.isoformat())
-        first_list = service_tasks.tasks().list(tasklist=app.tasklist).execute()["items"]
-        for event in first_list:
-            print(event)
-
         tasks_list = service_tasks.tasks().list(tasklist=app.tasklist,
-                                                dueMin=start_time.isoformat(),
-                                                dueMax=end_time.isoformat(),
                                                 showCompleted=True,
                                                 showHidden=True).execute()["items"]
 
         tasks_request_ans = []
 
         for task in tasks_list:
-            tasks_request_ans.append({"title": task["title"], "due": task["due"], "status": task["status"]})
+            due_utc = datetime.datetime.fromisoformat(task["due"].replace("Z", "+00:00"))
+            due_msk = due_utc.astimezone(datetime.timezone(datetime.timedelta(hours=3)))
+            if start_time <= due_msk <= end_time:
+                tasks_request_ans.append({"title": task["title"], "due": task["due"], "status": task["status"]})
 
         return {"calendar_ans": calendar_request_ans, "task_ans": tasks_request_ans}
 
