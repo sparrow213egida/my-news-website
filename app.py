@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 import datetime
 import os
+import base64
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
@@ -17,17 +18,17 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 app.calendar_list = os.getenv("CALENDAR_ID_LIST", "primary")
-app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS")
-app.token_contents = os.getenv("TOKEN_CONTENTS")
+app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS_B64")
+app.token_contents = os.getenv("TOKEN_CONTENTS_B64")
 app.tasklist = os.getenv("TASKLIST_ID")
 
 if app.credentials_contents:
-    with open("credentials.json", "w") as credentials_file:
-        credentials_file.write(app.credentials_contents)
+    with open("credentials.json", "wb") as credentials_file:
+        credentials_file.write(base64.b64decode(app.credentials_contents))
 
 if app.token_contents:
-    with open("token.json", "w") as token_file:
-        token_file.write(app.token_contents)
+    with open("token.json", "wb") as token_file:
+        token_file.write(base64.b64decode(app.token_contents))
 
 
 def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
