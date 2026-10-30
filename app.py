@@ -22,6 +22,8 @@ app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS_B64")
 app.token_contents = os.getenv("TOKEN_CONTENTS_B64")
 app.tasklist = os.getenv("TASKLIST_ID")
 
+print(f"DEBUG: Переменная CREDENTIALS_CONTENTS_B64 = {str(os.getenv('CREDENTIALS_CONTENTS_B64'))[:50]}...", flush=True)
+
 if app.credentials_contents:
     with open("credentials.json", "wb") as credentials_file:
         credentials_file.write(base64.b64decode(app.credentials_contents))
