@@ -22,7 +22,6 @@ app.credentials_contents = os.getenv("CREDENTIALS_CONTENTS_B64")
 app.token_contents = os.getenv("TOKEN_CONTENTS_B64")
 app.tasklist = os.getenv("TASKLIST_ID")
 
-print(f"DEBUG: Переменная CREDENTIALS_CONTENTS_B64 = {str(os.getenv('CREDENTIALS_CONTENTS_B64'))[:50]}...", flush=True)
 
 if app.credentials_contents:
     with open("credentials.json", "wb") as credentials_file:
@@ -43,15 +42,11 @@ def get_calendar_events(offset: int) -> dict[str, list[dict]] | str:
             try:
                 creds.refresh(Request())
             except RefreshError:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    "credentials.json", SCOPES
-                )
-                creds = flow.run_local_server(port=0)
+                return ("Ошибка: Токен Google протух. Сгенерируйте новый token.json "
+                        "локально и обновите TOKEN_CONTENTS_B64.")
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "credentials.json", SCOPES
-            )
-            creds = flow.run_local_server(port=0)
+            return ("Ошибка: Токен недействителен. Сгенерируйте новый token.json "
+                    "локально и обновите TOKEN_CONTENTS_B64.")
 
         with open("token.json", "w") as token:
             token.write(creds.to_json())
